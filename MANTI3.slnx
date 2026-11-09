@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Manti3.Frontend/Manti3.Frontend.csproj" />
+  </Folder>
+  <Folder Name="/src/Manti3.Backend/">
+    <Project Path="src/Manti3.Backend/Manti3.Backend.Api/Manti3.Backend.Api.csproj" />
+    <Project Path="src/Manti3.Backend/Manti3.Backend.Application/Manti3.Backend.Application.csproj" />
+    <Project Path="src/Manti3.Backend/Manti3.Backend.Domain/Manti3.Backend.Domain.csproj" />
+    <Project Path="src/Manti3.Backend/Manti3.Backend.Infrastructure/Manti3.Backend.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Manti3.Backend.IntegrationTests/Manti3.Backend.IntegrationTests.csproj" />
+    <Project Path="tests/Manti3.Backend.UnitTests/Manti3.Backend.UnitTests.csproj" />
+  </Folder>
+</Solution>

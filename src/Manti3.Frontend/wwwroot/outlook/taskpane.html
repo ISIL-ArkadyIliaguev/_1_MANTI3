@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MANTI3 · Outlook</title>
+    <!-- The ribbon button opens this page in Outlook's side panel. It sends the open mail to the backend, then moves
+         the panel to the access-requests page that follows the run. (A side panel needs no "Allow" question.) -->
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <script src="taskpane.js?v=1"></script>
+    <style>
+        body { font-family: "Segoe UI", Arial, sans-serif; margin: 0; padding: 24px 16px; color: #1b1b1b; background: #fff; }
+        #status { font-size: 15px; }
+        #status.error { color: #b00020; }
+        .spinner { width: 20px; height: 20px; border: 3px solid #ccc; border-top-color: #0f6cbd; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 12px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (prefers-color-scheme: dark) { body { background: #1f1f1f; color: #eee; } }
+    </style>
+</head>
+<body>
+    <div class="spinner" id="spinner"></div>
+    <div id="status">שולח את המייל לסוכן…</div>
+</body>
+</html>

@@ -1,0 +1,79 @@
+.mc { position: relative; min-width: 180px; }
+
+.mc-box {
+    width: 100%;
+    min-height: 36px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 28px 4px 8px;
+    font: inherit;
+    text-align: start;
+    color: inherit;
+    background: #FCFCFE;
+    border: 1.5px solid var(--line, #E3E7EF);
+    border-radius: 10px;
+    cursor: pointer;
+    position: relative;
+}
+.mc.disabled .mc-box { opacity: .6; cursor: not-allowed; }
+.mc-box:focus-visible { outline: 2px solid var(--accent, #F07A2A); outline-offset: 1px; }
+.mc-placeholder { color: var(--muted, #5B6578); }
+.mc-arrow { position: absolute; inset-inline-end: 8px; top: 50%; transform: translateY(-50%); color: var(--muted, #5B6578); }
+
+.mc-chip {
+    background: rgba(240, 122, 42, .14);
+    border: 1px solid rgba(240, 122, 42, .45);
+    border-radius: 999px;
+    padding: 1px 9px;
+    font-size: .85rem;
+    white-space: nowrap;
+}
+
+/* The list opens centered on the screen (like the script popup), not under the cell: the table sits in a
+   horizontally scrolling box, which would clip a list positioned under the cell. position: fixed is not clipped. */
+.mc-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(10, 14, 25, .45); }
+
+.mc-panel {
+    position: fixed;
+    z-index: 1001;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(520px, 92vw);
+    max-height: min(560px, 85vh);
+    display: flex;
+    flex-direction: column;
+    background: #FFFFFF;
+    color: #1C2433;
+    border: 1.5px solid var(--line, #E3E7EF);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(20, 33, 61, .25);
+    padding: 8px;
+}
+
+.mc-search {
+    font: inherit;
+    padding: 7px 10px;
+    border: 1.5px solid var(--line, #E3E7EF);
+    border-radius: 8px;
+    margin-bottom: 6px;
+}
+.mc-search:focus { outline: none; border-color: var(--accent, #F07A2A); }
+
+.mc-actions { display: flex; justify-content: space-between; font-size: .82rem; color: #5B6578; padding: 0 4px 6px; }
+.mc-link { background: none; border: 0; padding: 0; font: inherit; color: var(--accent, #F07A2A); cursor: pointer; }
+.mc-link:disabled { opacity: .4; cursor: default; }
+
+.mc-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
+.mc-list li label { display: flex; align-items: baseline; gap: 8px; padding: 5px 6px; border-radius: 6px; cursor: pointer; }
+.mc-list li label:hover { background: #F4F6FA; }
+.mc-list li.dim { opacity: .6; }
+.mc-label { font-weight: 600; min-width: 4.5ch; }
+.mc-hint { color: #5B6578; font-size: .85rem; }
+.mc-list li.have { background: #EAF6EF; }
+.mc-have { color: #1F6B45; font-size: .8rem; font-weight: 600; border: 1px solid #A9D8BE; border-radius: 8px; padding: 0 6px; }
+.mc-empty { padding: 10px; color: #5B6578; }
+.mc-more { padding: 6px 4px 0; font-size: .8rem; color: #5B6578; }
+.mc-extra { display: flex; align-items: center; gap: 8px; padding: 2px 4px 8px; font-size: .88rem; cursor: pointer; }

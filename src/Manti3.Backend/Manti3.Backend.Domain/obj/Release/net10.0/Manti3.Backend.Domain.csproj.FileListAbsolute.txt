@@ -1,0 +1,14 @@
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Domain\bin\Release\net10.0\Manti3.Backend.Domain.deps.json
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Domain\bin\Release\net10.0\Manti3.Backend.Domain.dll
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Domain\bin\Release\net10.0\Manti3.Backend.Domain.pdb
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Domain\obj\Release\net10.0\Manti3.Backend.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Domain\obj\Release\net10.0\Manti3.Backend.Domain.AssemblyInfoInputs.cache
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Domain\obj\Release\net10.0\Manti3.Backend.Domain.AssemblyInfo.cs
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Domain\obj\Release\net10.0\Manti3.Backend.Domain.csproj.CoreCompileInputs.cache
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Domain\obj\Release\net10.0\Manti3.Backend.Domain.dll
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Domain\obj\Release\net10.0\refint\Manti3.Backend.Domain.dll
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Domain\obj\Release\net10.0\Manti3.Backend.Domain.pdb
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Domain\obj\Release\net10.0\ref\Manti3.Backend.Domain.dll
+C:\Users\Arkadyi\AppData\Local\Temp\api-check-out\Manti3.Backend.Domain.deps.json
+C:\Users\Arkadyi\AppData\Local\Temp\api-check-out\Manti3.Backend.Domain.dll
+C:\Users\Arkadyi\AppData\Local\Temp\api-check-out\Manti3.Backend.Domain.pdb

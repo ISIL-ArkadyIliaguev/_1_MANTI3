@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "manti-sql": {
+      "command": "dotnet",
+      "args": ["tools/sql-mcp/bin/SqlMcp.dll"],
+      "env": {
+        "MANTI_SQL_SERVER": "SQL25DEV",
+        "MANTI_SQL_DATABASE": "Manti_IscarData"
+      }
+    },
+    "manti-sql-cln2": {
+      "command": "dotnet",
+      "args": ["tools/sql-mcp/bin/SqlMcp.dll"],
+      "env": {
+        "MANTI_SQL_SERVER": "SQL2025CLN2.iscar.com,2433",
+        "MANTI_SQL_DATABASE": "Manti_IscarData",
+        "MANTI_SQL_USER": "${MANTI_SQL_CLN2_USER:-}",
+        "MANTI_SQL_PASSWORD": "${MANTI_SQL_CLN2_PASSWORD:-}"
+      }
+    }
+  }
+}

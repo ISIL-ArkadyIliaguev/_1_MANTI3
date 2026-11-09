@@ -1,0 +1,961 @@
+@page "/access-requests"
+@using System.Text.RegularExpressions
+@using Markdig
+@implements IDisposable
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>בקשת הרשאות · MANTI3</PageTitle>
+<HeadContent>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@500..700&family=Heebo:wght@400..700&display=swap" />
+</HeadContent>
+
+<div class="ar">
+    <header class="hero">
+        <div class="hero-glow"></div>
+        <span class="eyebrow">MANTI3 · סוכן הרשאות</span>
+        <h1>בקשת הרשאות</h1>
+    </header>
+
+    @if (!FromOutlook)
+    {
+    <section class="panel">
+        <div class="drop mail @(dragging ? "over" : "")"
+             @ondragenter="() => dragging = true" @ondragleave="() => dragging = false" @ondrop="() => dragging = false">
+            <InputFile OnChange="OnFilesSelected" accept=".msg,.eml,.pdf" multiple disabled="@running" />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="m3 7 9 6 9-6" />
+            </svg>
+            <strong>גררו לכאן מיילים מ-Outlook וקובצי PDF, בכל שילוב</strong>
+            <span class="pick-btn">בחירת קבצים מהמחשב</span>
+            <span>אפשר לבחור כמה קבצים בבת אחת (Ctrl או Shift) · מיילים (.msg / .eml) עד @MaxMails, עד 10MB כל אחד · PDF עד @MaxPdfs, עד 5MB כל אחד</span>
+            <span class="tip">גרירה של כמה מיילים יחד מ-Outlook לא תמיד עוברת לדפדפן. אם רק מייל אחד נכנס: גררו את המיילים מ-Outlook לתיקייה, ובחרו אותם משם בכפתור.</span>
+        </div>
+
+        @if (files.Count > 0)
+        {
+            <ul class="mail-list">
+                @foreach (var file in files)
+                {
+                    <li>
+                        <span class="kind">@(file.IsPdf ? "PDF" : "מייל")</span>
+                        <span class="mail-name" dir="auto">@file.Name</span>
+                        <span class="mail-size">@((file.Content.Length / 1024.0).ToString("N0")) KB</span>
+                        <button type="button" class="remove" title="הסר" @onclick="() => RemoveFile(file)" disabled="@running">×</button>
+                    </li>
+                }
+            </ul>
+        }
+
+        <textarea class="email" dir="rtl" placeholder="אפשר גם להדביק כאן טקסט של מייל, או לכתוב הערות והוראות לסוכן"
+                  @bind="emailText" @bind:event="oninput" disabled="@running"></textarea>
+        <div class="hint">
+            @emailText.Length.ToString("N0") תווים
+            @if (files.Count > 0)
+            {
+                <span> · @files.Count קבצים והטקסט שבתיבה יישלחו יחד לסוכן כבקשה אחת</span>
+            }
+        </div>
+
+        @* server and the run button on one row: the server first, the button after it *@
+        <div class="launch-row">
+        @if (serversError is not null)
+        {
+            <div class="server-pick">
+                <label>שרת:</label>
+                <span class="server-note">@serversError</span>
+            </div>
+        }
+        else if (servers.Count > 0)
+        {
+            <div class="server-pick">
+                <label for="server">שרת:</label>
+                <select id="server" @bind="selectedServer" disabled="@running">
+                    @foreach (var s in servers)
+                    {
+                        <option value="@s.Name" disabled="@(!s.Ready)">@s.Name@(!s.Ready ? " (חסרים פרטי התחברות, ראו docs/how-to/access-requests.md)" : s.CanRunScripts ? "" : " (קריאה בלבד)")</option>
+                    }
+                </select>
+                @if (servers.FirstOrDefault(s => s.Name == selectedServer) is { CanRunScripts: false })
+                {
+                    <span class="server-note">בשרת הזה אפשר רק לבדוק ולקבל הסבר. הרצת הסקריפט זמינה רק ב-@(servers.FirstOrDefault(s => s.IsDefault)?.Name).</span>
+                }
+            </div>
+        }
+
+        <div class="actions">
+            <button class="run" @onclick="Run" disabled="@(running || !CanRun)">
+                @if (running)
+                {
+                    <span>הסוכן עובד</span>
+                }
+                else
+                {
+                    <span>הפעל סוכן</span>
+                }
+            </button>
+        </div>
+        </div>
+    </section>
+    }
+
+    @if (running)
+    {
+        <section class="panel working">
+            @* 4 קוביות (2x2) בצבעי הלוגו: כל קובייה מתגדלת ומתכווצת בתורה, שוב ושוב *@
+            <div class="cubes" role="status" aria-label="הסוכן עובד"><span></span><span></span><span></span><span></span></div>
+        </section>
+    }
+
+    @if (error != null)
+    {
+        <section class="panel error">@error</section>
+    }
+
+    @if (result != null)
+    {
+        <section class="results">
+            @if (result.Script is null)
+            {
+                @* the agent's explanation is not shown (decided 2026-11-09); only when there is no script at all it is
+                   the one thing there is to show *@
+                <article class="panel md" dir="auto">@((MarkupString)ToHtml(result.Summary))</article>
+            }
+
+            @if (rows.Count > 0)
+            {
+                <section class="panel editor">
+                    <div class="runbox-head">
+                        <h3>פרטי המשתמשים</h3>
+                        @if (result.Script != null)
+                        {
+                            <button type="button" class="ghost" @onclick="OpenScript" disabled="@approving">הצג סקריפט</button>
+                        }
+                    </div>
+
+                    <fieldset class="lock" disabled="@Locked">
+                    @if (rows.Any(r => !r.IsNew))
+                    {
+                        <h4 class="table-title">משתמשים קיימים <span class="count">(@rows.Count(r => !r.IsNew))</span></h4>
+                        <p class="table-note">אפשר רק להוסיף מרכזי עבודה ויישומים (הרשאת גישה). שום דבר לא נמחק ולא משתנה.</p>
+                        <div class="table-wrap">
+                            <table class="edit-table existing-table">
+                                <thead>
+                                    <tr>
+                                        <th title="סמנו את העובדים שיישמרו. עובד שהסימון שלו הוסר לא יישמר">שמירה</th>
+                                        <th>קוד עובד</th>
+                                        <th>שם</th>
+                                        <th>מרכז עבודה להוספה</th>
+                                        <th title="יישומים (מסכים) שיתווספו לעובד. הרשאת גישה בלבד; הרשאות הוספה/עדכון/מחיקה נקבעות במסך ההרשאות של MANTI 2">יישומים להוספה</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var row in rows.Where(r => !r.IsNew))
+                                    {
+                                        var (own, others) = WorkCentersFor(row);
+                                        <tr class="@(row.Include ? "" : "off")">
+                                            <td class="pick">
+                                                <input type="checkbox" checked="@row.Include" aria-label="שמירה"
+                                                       @onchange="e => OnIncludeChanged(row, (bool)(e.Value ?? false))" />
+                                            </td>
+                                            <td dir="ltr">@row.UserCode</td>
+                                            <td class="existing-name">@(string.IsNullOrWhiteSpace(row.Name) ? "—" : row.Name)</td>
+                                            <td>
+                                                <MultiCombo Items="own" ExtraItems="others"
+                                                            Selected="row.WorkCenterIds"
+                                                            SelectedChanged="ids => OnWorkCentersChanged(row, ids)"
+                                                            Placeholder="מרכזי עבודה להוספה"
+                                                            Disabled="@editBusy" />
+                                            </td>
+                                            <td>
+                                                <MultiCombo Items="applicationItems"
+                                                            Existing="row.ExistingScreenIds"
+                                                            Selected="row.ScreenIds"
+                                                            SelectedChanged="ids => OnScreensChanged(row, ids)"
+                                                            Placeholder="יישומים להוספה"
+                                                            Disabled="@editBusy" />
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    @if (rows.Any(r => r.IsNew))
+                    {
+                        <h4 class="table-title">משתמשים חדשים <span class="count">(@rows.Count(r => r.IsNew))</span></h4>
+                        <div class="table-wrap">
+                            <table class="edit-table">
+                                <thead>
+                                    <tr>
+                                        <th title="סמנו את העובדים שיישמרו. עובד שהסימון שלו הוסר לא יישמר">שמירה</th>
+                                        <th>קוד עובד</th>
+                                        <th>שם פרטי</th>
+                                        <th>שם משפחה</th>
+                                        <th>קבוצת משתמש</th>
+                                        <th>שם משתמש</th>
+                                        <th>סיסמה</th>
+                                        <th>מחלקה</th>
+                                        <th>מרכז עבודה</th>
+                                        <th>שם פרטי באנגלית</th>
+                                        <th>שם משפחה באנגלית</th>
+                                        <th>מייל</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var row in rows.Where(r => r.IsNew))
+                                    {
+                                        var (own, others) = WorkCentersFor(row);
+                                        <tr class="@(row.Include ? "" : "off")">
+                                            <td class="pick">
+                                                <input type="checkbox" checked="@row.Include" aria-label="שמירה"
+                                                       @onchange="e => OnIncludeChanged(row, (bool)(e.Value ?? false))" />
+                                            </td>
+                                            <td dir="ltr">@row.UserCode</td>
+                                            <td><input dir="auto" maxlength="15" @bind="row.FirstName" @bind:event="oninput" @bind:after="MarkDirty" /></td>
+                                            <td><input dir="auto" maxlength="15" @bind="row.LastName" @bind:event="oninput" @bind:after="MarkDirty" /></td>
+                                            <td>
+                                                <select @bind="row.GroupId" @bind:after="MarkDirty">
+                                                    @if (groups.All(g => g.Id != row.GroupId))
+                                                    {
+                                                        <option value="@row.GroupId">קבוצה @row.GroupId</option>
+                                                    }
+                                                    @foreach (var g in groups)
+                                                    {
+                                                        <option value="@g.Id">@g.Name (@g.Id)</option>
+                                                    }
+                                                </select>
+                                            </td>
+                                            <td><input dir="ltr" maxlength="50" @bind="row.UserName" @bind:event="oninput" @bind:after="MarkDirty"
+                                                       title="ברירת המחדל: שם פרטי באנגלית + 2 אותיות מהמשפחה. אפשר לכתוב כל שם פנוי. ריק = חזרה לברירת המחדל" /></td>
+                                            <td><input dir="ltr" maxlength="10" class="narrow" @bind="row.Password" @bind:event="oninput" @bind:after="MarkDirty"
+                                                       title="ברירת המחדל: מספר העובד (עד 10 תווים)" /></td>
+                                            <td>
+                                                <select @bind="row.DepartmentId" @bind:after="MarkDirty">
+                                                    @if (departments.All(d => d.Id != row.DepartmentId))
+                                                    {
+                                                        <option value="@row.DepartmentId">מחלקה @row.DepartmentId</option>
+                                                    }
+                                                    @foreach (var d in departments)
+                                                    {
+                                                        <option value="@d.Id">@d.Name (@d.Id)</option>
+                                                    }
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <MultiCombo Items="own" ExtraItems="others"
+                                                            ExtraLabel="הצג גם מרכזי עבודה ממחלקות אחרות"
+                                                            Selected="row.WorkCenterIds"
+                                                            SelectedChanged="ids => OnWorkCentersChanged(row, ids)"
+                                                            Placeholder="מרכזי עבודה של המחלקה"
+                                                            Disabled="@editBusy" />
+                                            </td>
+                                            <td><input dir="ltr" maxlength="15" @bind="row.EngFirstName" @bind:event="oninput" @bind:after="MarkDirty" /></td>
+                                            <td><input dir="ltr" maxlength="15" @bind="row.EngLastName" @bind:event="oninput" @bind:after="MarkDirty" /></td>
+                                            <td><input dir="ltr" maxlength="50" @bind="row.Email" @bind:event="oninput" @bind:after="MarkDirty" /></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    </fieldset>
+
+                    @if (editError != null)
+                    {
+                        <p class="run-error">@editError</p>
+                    }
+
+                    @ApproveBlock()
+                </section>
+            }
+            else if (result.Script != null)
+            {
+                @* a run without an editable spec (an older run): the same approve button, no table *@
+                <section class="panel">
+                    @ApproveBlock()
+                </section>
+            }
+        </section>
+    }
+
+    @if (showScript && result?.Script != null)
+    {
+        <div class="modal-backdrop" @onclick="CloseScript">
+            <div class="modal" tabindex="-1" @ref="modalRef" @onkeydown="OnModalKey" @onclick:stopPropagation="true"
+                 role="dialog" aria-modal="true" aria-label="script.sql">
+                <div class="code">
+                    <div class="code-bar">
+                        <span class="dots"><i></i><i></i><i></i></span>
+                        <span>script.sql</span>
+                        <button @onclick="CopyScript">@(copied ? "הועתק ✓" : "העתק סקריפט")</button>
+                        <button class="close" @onclick="CloseScript" aria-label="סגור">✕</button>
+                    </div>
+                    <pre><code>@result.Script</code></pre>
+                </div>
+                <p class="after">ב-SSMS: חלון ריק, F5 לכל הקובץ, בדיקת טבלאות התוצאה, ואז ROLLBACK או COMMIT.</p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // ?job=<id>: הדף נפתח מכפתור Outlook. התוסף כבר שלח את המייל הפתוח והסוכן רץ ברקע; כאן רק מחכים לתוצאה
+    [SupplyParameterFromQuery(Name = "job")]
+    [Parameter]
+    public string? Job { get; set; }
+
+    private bool FromOutlook => !string.IsNullOrEmpty(Job);
+    private string? pollingJob;
+    private readonly CancellationTokenSource pollCts = new();
+
+    // השרתים לקריאה, מהשרת (ה-API). הראשון הוא ברירת המחדל. אם הרשימה לא נטענה, נשלח בלי שרת והשרת בוחר ברירת מחדל
+    private List<ServerDto> servers = [];
+    private string? selectedServer;
+    private string? serversError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            servers = await Http.GetFromJsonAsync<List<ServerDto>>("api/access-requests/servers") ?? [];
+            selectedServer = servers.FirstOrDefault(s => s.IsDefault)?.Name ?? servers.FirstOrDefault()?.Name;
+        }
+        catch (Exception)
+        {
+            // ה-API לא רץ, או שהוא גרסה ישנה בלי הרשימה: מציגים הודעה במקום להסתיר את הבחירה
+            serversError = "לא ניתן לטעון את רשימת השרתים. ה-API לא רץ או שצריך להפעיל אותו מחדש (.\\scripts\\dev.ps1 restart). הסוכן ישתמש ב-SQL25DEV.";
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (FromOutlook && Job != pollingJob)
+        {
+            pollingJob = Job;
+            _ = PollJob(Job!);
+        }
+    }
+
+    // שואל את הסטטוס כל כמה שניות עד שהריצה מסתיימת (done) או נכשלת (failed)
+    private async Task PollJob(string jobId)
+    {
+        error = null;
+        result = null;
+        running = true;
+        StartTicker();
+
+        // החלון נפתח לפני שהמייל נשלח לשרת, ולכן בדקות הראשונות "לא נמצא" פירושו "עוד לא התחיל"
+        var startedWaiting = DateTime.UtcNow;
+
+        try
+        {
+            while (!pollCts.IsCancellationRequested)
+            {
+                var response = await Http.GetAsync($"api/access-requests/jobs/{jobId}", pollCts.Token);
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound
+                    && DateTime.UtcNow - startedWaiting < TimeSpan.FromSeconds(60))
+                {
+                    await Task.Delay(1000, pollCts.Token);
+                    continue;
+                }
+
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    error = "הריצה לא נמצאה (ייתכן שה-API הופעל מחדש). סגרו את החלון ולחצו שוב על הכפתור במייל.";
+                    break;
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    error = $"שגיאה בקבלת הסטטוס: {response.ReasonPhrase}";
+                    break;
+                }
+
+                var snapshot = await response.Content.ReadFromJsonAsync<JobDto>(pollCts.Token);
+                if (snapshot?.Status == "done")
+                {
+                    result = snapshot.Result;
+                    await LoadEditor();
+                    break;
+                }
+
+                if (snapshot?.Status == "failed")
+                {
+                    error = $"הבקשה נכשלה: {snapshot.ErrorDetail ?? snapshot.ErrorTitle}";
+                    break;
+                }
+
+                await Task.Delay(2000, pollCts.Token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // החלון נסגר
+        }
+        catch (Exception ex)
+        {
+            error = $"שגיאה בהמתנה לסוכן: {ex.Message}";
+        }
+        finally
+        {
+            running = false;
+            ticker?.Cancel();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private const long MaxPdfBytes = 5 * 1024 * 1024;
+    private const long MaxMailBytes = 10 * 1024 * 1024;
+    private const int MaxMails = 10;
+    private const int MaxPdfs = 5;
+
+    // HTML גולמי חסום: התוכנית מכילה טקסט שהגיע מהמייל
+    private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
+        .UseAdvancedExtensions()
+        .DisableHtml()
+        .Build();
+
+    private string emailText = string.Empty;
+    private readonly List<AttachedFile> files = [];
+    private bool dragging;
+    private bool running;
+    private bool copied;
+    private bool showScript;
+    private bool focusModal;
+    private ElementReference modalRef;
+    private int elapsed;
+    private string? error;
+    private AccessRequestResult? result;
+    private CancellationTokenSource? ticker;
+
+    private bool CanRun => files.Count > 0 || !string.IsNullOrWhiteSpace(emailText);
+
+    private string Elapsed => TimeSpan.FromSeconds(elapsed).ToString(@"m\:ss");
+
+    // קישורים רק ל-http(s) או לעוגן בעמוד
+    private static string ToHtml(string markdown)
+        => Regex.Replace(Markdown.ToHtml(markdown, Pipeline), "href=\"(?!https?:|#)[^\"]*\"", "href=\"#\"");
+
+    // מיילים שנגררו מ-Outlook מגיעים כ-.msg (Outlook קלאסי) או .eml (Outlook חדש / web); טפסי הסמכה כ-PDF.
+    // גרירה נוספת מוסיפה לרשימה, ואפשר לערבב מיילים ו-PDF בכל שילוב
+    private async Task OnFilesSelected(InputFileChangeEventArgs e)
+    {
+        dragging = false;
+        error = null;
+        var problems = new List<string>();
+
+        foreach (var file in e.GetMultipleFiles(maximumFileCount: 50))
+        {
+            var isPdf = file.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+            var isMail = file.Name.EndsWith(".msg", StringComparison.OrdinalIgnoreCase)
+                         || file.Name.EndsWith(".eml", StringComparison.OrdinalIgnoreCase);
+
+            if (!isPdf && !isMail)
+            {
+                problems.Add($"{file.Name}: אפשר לגרור רק מייל מ-Outlook (.msg / .eml) או קובץ PDF");
+                continue;
+            }
+
+            if (files.Count(f => f.IsPdf == isPdf) >= (isPdf ? MaxPdfs : MaxMails))
+            {
+                problems.Add(isPdf
+                    ? $"{file.Name}: אפשר עד {MaxPdfs} קובצי PDF בבקשה אחת"
+                    : $"{file.Name}: אפשר עד {MaxMails} מיילים בבקשה אחת");
+                continue;
+            }
+
+            if (files.Any(f => f.Name == file.Name && f.Content.Length == file.Size))
+                continue; // אותו קובץ נגרר פעמיים
+
+            try
+            {
+                using var stream = file.OpenReadStream(isPdf ? MaxPdfBytes : MaxMailBytes);
+                using var memory = new MemoryStream();
+                await stream.CopyToAsync(memory);
+                files.Add(new AttachedFile(file.Name, memory.ToArray(), isPdf));
+            }
+            catch (IOException)
+            {
+                problems.Add($"{file.Name}: הקובץ גדול מ-{(isPdf ? 5 : 10)}MB");
+            }
+        }
+
+        if (problems.Count > 0)
+            error = string.Join(" · ", problems);
+    }
+
+    private void RemoveFile(AttachedFile file) => files.Remove(file);
+
+    private async Task Run()
+    {
+        error = null;
+        result = null;
+        ClearEditor();
+        copied = false;
+        showScript = false;
+        committed = false;
+        approveError = null;
+        running = true;
+        StartTicker();
+
+        try
+        {
+            // הכול נשלח יחד: הטקסט שבתיבה, כל המיילים וכל טפסי ה-PDF. השרת מחבר אותם לבקשה אחת לסוכן
+            var body = new
+            {
+                emailText = (string?)(string.IsNullOrWhiteSpace(emailText) ? null : emailText),
+                mailFiles = files.Where(f => !f.IsPdf).Select(f => new FileDto(f.Name, Convert.ToBase64String(f.Content))).ToList(),
+                pdfFiles = files.Where(f => f.IsPdf).Select(f => new FileDto(f.Name, Convert.ToBase64String(f.Content))).ToList(),
+                server = selectedServer,
+            };
+            var response = await Http.PostAsJsonAsync("api/access-requests", body);
+
+            if (response.IsSuccessStatusCode)
+            {
+                result = await response.Content.ReadFromJsonAsync<AccessRequestResult>();
+                await LoadEditor();
+            }
+            else
+            {
+                var problem = await response.Content.ReadFromJsonAsync<Problem>();
+                error = $"הבקשה נכשלה: {problem?.Detail ?? problem?.Title ?? response.ReasonPhrase}";
+            }
+        }
+        catch (Exception ex)
+        {
+            error = $"שגיאה בהפעלת הסוכן: {ex.Message}";
+        }
+        finally
+        {
+            running = false;
+            ticker?.Cancel();
+        }
+    }
+
+    private void StartTicker()
+    {
+        elapsed = 0;
+        ticker?.Cancel();
+        ticker = new CancellationTokenSource();
+        var token = ticker.Token;
+        _ = Task.Run(async () =>
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            while (await timer.WaitForNextTickAsync(token))
+            {
+                elapsed++;
+                await InvokeAsync(StateHasChanged);
+            }
+        }, token);
+    }
+
+    // ---------- טבלת העריכה של פרטי המשתמשים ----------
+    // השרת הוא הבעלים של הכללים (שם המשתמש, ולידציה, בניית הסקריפט); כאן רק קוראים ושולחים ערכים מובנים
+
+    private readonly List<EditRow> rows = [];
+    private List<LookupItemDto> groups = [];
+    private List<DepartmentDto> departments = [];
+    private List<WorkCenterDto> workCenters = [];
+    private readonly Dictionary<int, (List<ComboItem> Own, List<ComboItem> Others)> workCenterLists = [];
+    private bool dirty;
+    private bool editBusy;
+    private string? editError;
+
+    private void ClearEditor()
+    {
+        rows.Clear();
+        dirty = false;
+        editError = null;
+    }
+
+    private void MarkDirty()
+    {
+        dirty = true;
+    }
+
+    private void OnIncludeChanged(EditRow row, bool include)
+    {
+        row.Include = include;
+        MarkDirty();
+    }
+
+    private void OnWorkCentersChanged(EditRow row, List<int> ids)
+    {
+        row.WorkCenterIds = ids;
+        MarkDirty();
+    }
+
+    private void OnScreensChanged(EditRow row, List<int> ids)
+    {
+        row.ScreenIds = ids;
+        MarkDirty();
+    }
+
+    // כל היישומים שאפשר לתת למשתמש קיים: כותרת (מספר). נבנה פעם אחת אחרי טעינת הרשימות
+    private List<ComboItem> applicationItems = [];
+
+    // תפריט מרכזי העבודה של עובד חדש: מרכזי העבודה של המחלקה שלו (Own), ובנפרד כל השאר (Others, מוצגים לפי בקשה).
+    // לעובד קיים אין מחלקה בבקשה, ולכן כל מרכזי העבודה ברשימה אחת. הרשימות נשמרות לפי מחלקה
+    private (List<ComboItem> Own, List<ComboItem> Others) WorkCentersFor(EditRow row)
+    {
+        var department = row.IsNew ? row.DepartmentId : 0;
+        if (workCenterLists.TryGetValue(department, out var cached))
+            return cached;
+
+        ComboItem ToItem(WorkCenterDto c) => new(c.Id, c.Code, c.Name, Dimmed: !c.Display);
+        var built = department == 0
+            ? (workCenters.Select(ToItem).ToList(), new List<ComboItem>())
+            : (workCenters.Where(c => c.DepartmentId == department && c.Display).Select(ToItem).ToList(),
+               workCenters.Where(c => !(c.DepartmentId == department && c.Display)).Select(ToItem).ToList());
+        workCenterLists[department] = built;
+        return built;
+    }
+
+    // טוען את ה-spec של הבקשה והרשימות לתפריטים. אם אין spec (ריצה ישנה) הטבלה פשוט לא מוצגת
+    private async Task LoadEditor()
+    {
+        ClearEditor();
+        if (result?.Script is null)
+            return;
+
+        try
+        {
+            var specTask = Http.GetAsync($"api/access-requests/{result.RequestId}/spec");
+            var lookupsTask = Http.GetAsync($"api/access-requests/lookups?server={Uri.EscapeDataString(result.Server ?? string.Empty)}");
+            await Task.WhenAll(specTask, lookupsTask);
+
+            var specResponse = await specTask;
+            var lookupsResponse = await lookupsTask;
+            if (!specResponse.IsSuccessStatusCode)
+                return;
+
+            if (!lookupsResponse.IsSuccessStatusCode)
+            {
+                editError = "הרשימות (מחלקות, קבוצות, מרכזי עבודה) לא נטענו, ולכן אי אפשר לערוך את הטבלה.";
+                return;
+            }
+
+            var lookups = await lookupsResponse.Content.ReadFromJsonAsync<LookupsDto>();
+            groups = lookups?.Groups ?? [];
+            departments = lookups?.Departments ?? [];
+            workCenters = lookups?.WorkCenters ?? [];
+            applicationItems = (lookups?.Applications ?? [])
+                .Select(a => new ComboItem(a.Id, a.Caption, a.Id.ToString())).ToList();
+            workCenterLists.Clear();
+
+            FillRows(await specResponse.Content.ReadFromJsonAsync<SpecDto>());
+        }
+        catch (Exception ex)
+        {
+            editError = $"טבלת העריכה לא נטענה: {ex.Message}";
+        }
+    }
+
+    private void FillRows(SpecDto? spec)
+    {
+        rows.Clear();
+        foreach (var w in spec?.Workers ?? [])
+            rows.Add(EditRow.From(w));
+        dirty = false;
+    }
+
+    // שולח את הערכים; השרת מחיל אותם, בונה את הסקריפט מחדש ומחזיר אותו. true אם הצליח
+    private async Task<bool> ApplyEdits()
+    {
+        editError = null;
+        editBusy = true;
+        try
+        {
+            var body = new
+            {
+                workers = rows.Select(r => new
+                {
+                    userCode = r.UserCode,
+                    newUser = r.IsNew
+                        ? new
+                        {
+                            firstName = r.FirstName, lastName = r.LastName, engFirstName = r.EngFirstName,
+                            engLastName = r.EngLastName, email = r.Email,
+                            departmentId = r.DepartmentId, groupId = r.GroupId,
+                            // לא שונה = null (השרת משאיר את מה שהיה); ריק = חזרה לברירת המחדל; אחרת הערך שהוקלד
+                            userName = r.UserNameChanged ? r.UserName?.Trim() ?? string.Empty : null,
+                            password = r.PasswordChanged ? r.Password ?? string.Empty : null,
+                        }
+                        : null,
+                    workCenterIds = r.WorkCenterIds,
+                    screenIds = r.IsNew ? null : r.ScreenIds,
+                    include = r.Include,
+                }).ToList(),
+            };
+
+            var response = await Http.PutAsJsonAsync($"api/access-requests/{result!.RequestId}/spec", body);
+            if (!response.IsSuccessStatusCode)
+            {
+                var problem = await response.Content.ReadFromJsonAsync<Problem>();
+                editError = $"העדכון נכשל: {problem?.Detail ?? problem?.Title ?? response.ReasonPhrase}";
+                return false;
+            }
+
+            var updated = await response.Content.ReadFromJsonAsync<UpdatedDto>();
+            if (updated is null)
+                return false;
+
+            result = result with { Script = updated.Script, ScriptHasChanges = updated.ScriptHasChanges };
+            FillRows(updated.Spec);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            editError = $"שגיאה בעדכון: {ex.Message}";
+            return false;
+        }
+        finally
+        {
+            editBusy = false;
+        }
+    }
+
+    // ---------- אישור ושמירה ----------
+    // לחיצה אחת: מעדכן את הסקריפט מהטבלה, בודק אותו בהרצה לניסיון (הכול רץ ואז מתבטל) ורק אם הבדיקה עברה שומר ב-DB.
+    // השרת עדיין מסרב לשמור סקריפט שלא רץ לניסיון באותו תוכן, ולכן הבדיקה היא חלק מהשמירה ולא שלב שאפשר לדלג עליו
+
+    private bool Locked => editBusy || approving || committed;
+    private bool approving;
+    private bool committed;
+    private int committedRows;
+    private string step = string.Empty;
+    private string? approveError;
+
+    private async Task Approve()
+    {
+        approveError = null;
+        editError = null;
+        approving = true;
+        try
+        {
+            if (rows.Count > 0 && dirty)
+            {
+                step = "מעדכן את הסקריפט...";
+                if (!await ApplyEdits())
+                    return;
+            }
+
+            step = "בודק את הסקריפט (הרצה לניסיון, שום דבר לא נשמר)...";
+            if (await PostRun(false) is null)
+                return;
+
+            step = "שומר ב-DB...";
+            if (await PostRun(true) is { Committed: true } saved)
+            {
+                committed = true;
+                committedRows = saved.RowsAffected;
+                dirty = false;
+            }
+        }
+        finally
+        {
+            approving = false;
+        }
+    }
+
+    // מריץ את הסקריפט של הבקשה (commit=false: לניסיון, מתבטל; commit=true: שומר). null אם נכשל, וההודעה ב-approveError
+    private async Task<ScriptRunDto?> PostRun(bool commit)
+    {
+        var failed = commit ? "השמירה נכשלה" : "הבדיקה נכשלה, לא נשמר כלום";
+        try
+        {
+            var response = await Http.PostAsJsonAsync($"api/access-requests/{result!.RequestId}/run-script", new { commit });
+            if (response.IsSuccessStatusCode)
+                return await response.Content.ReadFromJsonAsync<ScriptRunDto>();
+
+            var problem = await response.Content.ReadFromJsonAsync<Problem>();
+            approveError = $"{failed}: {problem?.Detail ?? problem?.Title ?? response.ReasonPhrase}";
+        }
+        catch (Exception ex)
+        {
+            approveError = $"{failed}: {ex.Message}";
+        }
+
+        return null;
+    }
+
+    // כפתור האישור: מתחת לטבלה (או לבדו כשאין טבלה)
+    private RenderFragment ApproveBlock() => @<div class="approve">
+        @if (result?.Script is null)
+        {
+        }
+        else if (committed)
+        {
+            <p class="done">✓ נשמר ב-DB (@committedRows שורות). השינויים בתוקף.</p>
+        }
+        else if (rows.Count > 0 && !rows.Any(r => r.Include))
+        {
+            <p class="how">לא סומן אף עובד לשמירה. סמנו לפחות עובד אחד בעמודה "שמירה".</p>
+        }
+        else if (!result.ScriptHasChanges)
+        {
+            <p class="how">אין מה לשמור: לא נבחר מרכז עבודה או יישום להוספה לעובד קיים, ואין עובד חדש לפתוח לו משתמש.</p>
+        }
+        else if (!result.CanRunScript)
+        {
+            <p class="how">הבקשה הוכנה משרת לקריאה בלבד (@result.Server), ולכן אי אפשר לשמור. כדי לשמור, הפעילו את הסוכן שוב עם השרת @(servers.FirstOrDefault(s => s.IsDefault)?.Name).</p>
+        }
+        else
+        {
+            <div class="run-actions">
+                <button type="button" class="run small commit" @onclick="Approve" disabled="@approving">
+                    @(approving ? step : "אישור ושמירה ב-DB")
+                </button>
+                @if (rows.Count == 0)
+                {
+                    @* no table (an older run): there is no table header to hold the show-script button *@
+                    <button type="button" class="ghost" @onclick="OpenScript" disabled="@approving">הצג סקריפט</button>
+                }
+            </div>
+        }
+        @if (approveError != null)
+        {
+            <p class="run-error">@approveError</p>
+        }
+    </div>;
+
+    // הסקריפט מוצג בחלון קופץ: נסגר ב-X, בלחיצה על הרקע או ב-Escape
+    private void OpenScript()
+    {
+        showScript = true;
+        focusModal = true;
+    }
+
+    private void CloseScript() => showScript = false;
+
+    private void OnModalKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+            CloseScript();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // פוקוס על החלון כדי ש-Escape יעבוד
+        if (focusModal)
+        {
+            focusModal = false;
+            await modalRef.FocusAsync();
+        }
+    }
+
+    private async Task CopyScript()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", result!.Script);
+        copied = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        copied = false;
+    }
+
+    public void Dispose()
+    {
+        ticker?.Cancel();
+        pollCts.Cancel();
+    }
+
+    private sealed record AccessRequestResult(string RequestId, string Summary, string? Plan, string? Script, string? Explanation, bool ScriptHasChanges, string? Server, bool CanRunScript);
+
+    private sealed record ServerDto(string Name, bool IsDefault, bool CanRunScripts, bool Ready = true);
+
+    private sealed record SpecDto(List<WorkerDto> Workers);
+
+    private sealed record WorkerDto(string UserCode, bool IsNewUser, NewUserDto? NewUser, List<int> WorkCenterIds, bool Included = true,
+        string? Name = null, List<int>? ScreenIds = null, List<int>? ExistingScreenIds = null);
+
+    private sealed record NewUserDto(string? FirstName, string? LastName, string? UserName, string? Password, int GroupId,
+        int DepartmentId, string? EngFirstName, string? EngLastName, string? Email);
+
+    private sealed record UpdatedDto(SpecDto Spec, string Script, bool ScriptHasChanges);
+
+    private sealed record LookupItemDto(int Id, string Name);
+
+    private sealed record DepartmentDto(int Id, string Name, string? Code);
+
+    private sealed record WorkCenterDto(int Id, string Code, string Name, int? DepartmentId, bool Display);
+
+    private sealed record ApplicationDto(int Id, string Name, string Caption);
+
+    private sealed record LookupsDto(List<LookupItemDto> Groups, List<DepartmentDto> Departments, List<WorkCenterDto> WorkCenters,
+        List<ApplicationDto>? Applications = null);
+
+    // שורה בטבלת העריכה (אובייקט משתנה, כי השדות קשורים ל-@bind).
+    // שם משתמש וסיסמה נשלחים רק אם האדם שינה אותם (מול הערך שהגיע מהשרת): כך שם מחושב ממשיך לעקוב אחרי השמות באנגלית
+    private sealed class EditRow
+    {
+        public string UserCode { get; init; } = string.Empty;
+        public bool IsNew { get; init; }
+        public string? UserName { get; set; }
+        public string? Password { get; set; }
+        public string? OriginalUserName { get; init; }
+        public string? OriginalPassword { get; init; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? EngFirstName { get; set; }
+        public string? EngLastName { get; set; }
+        public string? Email { get; set; }
+        public int DepartmentId { get; set; }
+        public int GroupId { get; set; }
+        public List<int> WorkCenterIds { get; set; } = [];
+
+        // עובד קיים: השם לתצוגה, והיישומים (ObjId) שיתווספו לו
+        public string? Name { get; init; }
+        public List<int> ScreenIds { get; set; } = [];
+
+        // היישומים שכבר יש לעובד ב-DB (לתצוגה בלבד: מסומנים ונעולים בתפריט)
+        public List<int> ExistingScreenIds { get; init; } = [];
+
+        // תיבת הסימון: ברירת המחדל מסומן. מי שהסימון שלו הוסר לא נשמר
+        public bool Include { get; set; } = true;
+
+        public bool UserNameChanged => UserName != OriginalUserName;
+        public bool PasswordChanged => Password != OriginalPassword;
+
+        public static EditRow From(WorkerDto w)
+        {
+            var n = w.NewUser;
+            return new EditRow
+            {
+                UserCode = w.UserCode,
+                IsNew = w.IsNewUser,
+                UserName = n?.UserName,
+                OriginalUserName = n?.UserName,
+                Password = n?.Password,
+                OriginalPassword = n?.Password,
+                FirstName = n?.FirstName,
+                LastName = n?.LastName,
+                EngFirstName = n?.EngFirstName,
+                EngLastName = n?.EngLastName,
+                Email = n?.Email,
+                DepartmentId = n?.DepartmentId ?? 0,
+                GroupId = n?.GroupId ?? 0,
+                WorkCenterIds = [.. w.WorkCenterIds],
+                Name = w.Name,
+                ScreenIds = [.. w.ScreenIds ?? []],
+                ExistingScreenIds = [.. w.ExistingScreenIds ?? []],
+                Include = w.Included,
+            };
+        }
+    }
+
+    private sealed record AttachedFile(string Name, byte[] Content, bool IsPdf);
+
+    private sealed record FileDto(string Name, string Base64);
+
+    private sealed record JobDto(string Status, AccessRequestResult? Result, string? ErrorTitle, string? ErrorDetail, int ElapsedSeconds);
+
+    private sealed record ScriptRunDto(bool Committed, int RowsAffected, List<ResultSetDto> ResultSets);
+
+    private sealed record ResultSetDto(List<string> Columns, List<List<string?>> Rows);
+
+    private sealed record Problem(string? Title, string? Detail);
+}

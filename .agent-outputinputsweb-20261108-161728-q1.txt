@@ -1,0 +1,2 @@
+﻿Msg 207, Level 16, State 1, Server SQL2025CLN2\MANTI, Line 1
+Invalid column name 'BranchId'.

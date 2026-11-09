@@ -1,0 +1,15 @@
+{
+  "workers": ["10001", "10002", "10003", "10004"],
+  "exampleUser": "10005",
+  "workCenters": ["N1S", "S1N"],
+  "requestedActions": ["add-work-center", "copy-permissions-from-example"],
+  "workCenterNote": "N1S and S1N are the same code, reversed by right-to-left text. With a database: use the one that exists (N1S on SQL25DEV, verified 2026-11-04: N1S exists and is displayed, S1N does not) and note the reversal. Without a database: report both as not verified.",
+  "copyScreensFromExample": "planned without asking (the email has an explicit example line)",
+  "mustAsk": [],
+  "mustNotAppear": ["פסילה"],
+  "withoutDatabase": {
+    "everyItemMarked": "not verified",
+    "script": "verification SELECT queries only",
+    "scriptMustNotContain": ["INSERT"]
+  }
+}

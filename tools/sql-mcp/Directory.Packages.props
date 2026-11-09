@@ -1,0 +1,6 @@
+<Project>
+  <!-- The MCP tool is standalone: opt out of the solution's central package management. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

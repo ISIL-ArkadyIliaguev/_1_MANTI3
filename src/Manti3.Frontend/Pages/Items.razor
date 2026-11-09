@@ -1,0 +1,48 @@
+@page "/"
+@page "/items"
+@inject HttpClient Http
+
+<PageTitle>פריטים</PageTitle>
+
+<h1>פריטים</h1>
+
+@if (error != null)
+{
+    <p class="text-danger">@error</p>
+}
+else if (items == null)
+{
+    <p><em>טוען...</em></p>
+}
+else
+{
+    <p>@items.Length שורות</p>
+    <table class="table">
+        <thead>
+            <tr><th>פריט</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var item in items)
+            {
+                <tr><td>@item</td></tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private string[]? items;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            items = await Http.GetFromJsonAsync<string[]>("api/items");
+        }
+        catch (Exception ex)
+        {
+            error = $"שגיאה בטעינת הנתונים: {ex.Message}";
+        }
+    }
+}

@@ -1,0 +1,17 @@
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Infrastructure\bin\Debug\net10.0\Manti3.Backend.Infrastructure.deps.json
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Infrastructure\bin\Debug\net10.0\Manti3.Backend.Infrastructure.dll
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Infrastructure\bin\Debug\net10.0\Manti3.Backend.Infrastructure.pdb
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Infrastructure\bin\Debug\net10.0\Manti3.Backend.Application.dll
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Infrastructure\bin\Debug\net10.0\Manti3.Backend.Domain.dll
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Infrastructure\bin\Debug\net10.0\Manti3.Backend.Application.pdb
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Infrastructure\bin\Debug\net10.0\Manti3.Backend.Domain.pdb
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Infrastructure\obj\Debug\net10.0\Manti3.Backend.Infrastructure.csproj.AssemblyReference.cache
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Infrastructure\obj\Debug\net10.0\Manti3.Backend.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Infrastructure\obj\Debug\net10.0\Manti3.Backend.Infrastructure.AssemblyInfoInputs.cache
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Infrastructure\obj\Debug\net10.0\Manti3.Backend.Infrastructure.AssemblyInfo.cs
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Infrastructure\obj\Debug\net10.0\Manti3.Backend.Infrastructure.csproj.CoreCompileInputs.cache
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Infrastructure\obj\Debug\net10.0\Manti3.B.A1EEB9D6.Up2Date
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Infrastructure\obj\Debug\net10.0\Manti3.Backend.Infrastructure.dll
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Infrastructure\obj\Debug\net10.0\refint\Manti3.Backend.Infrastructure.dll
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Infrastructure\obj\Debug\net10.0\Manti3.Backend.Infrastructure.pdb
+C:\Users\Arkadyi\source\repos\_1_MANTI3\src\Manti3.Backend\Manti3.Backend.Infrastructure\obj\Debug\net10.0\ref\Manti3.Backend.Infrastructure.dll

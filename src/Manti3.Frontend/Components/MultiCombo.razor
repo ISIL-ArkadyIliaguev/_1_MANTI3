@@ -1,0 +1,133 @@
+@* תפריט בחירה מרובה עם חיפוש: מציג את הנבחרים כתגיות, ופותח רשימה עם תיבת חיפוש ותיבות סימון *@
+<div class="mc @(Disabled ? "disabled" : "")">
+    <button type="button" class="mc-box" @onclick="Toggle" disabled="@Disabled" aria-haspopup="listbox" aria-expanded="@open">
+        @if (SelectedItems.Count == 0)
+        {
+            <span class="mc-placeholder">@Placeholder</span>
+        }
+        else
+        {
+            @foreach (var item in SelectedItems)
+            {
+                <span class="mc-chip" title="@item.Hint" dir="ltr">@item.Label</span>
+            }
+        }
+        <span class="mc-arrow" aria-hidden="true">▾</span>
+    </button>
+
+    @if (open)
+    {
+        <div class="mc-backdrop" @onclick="Close"></div>
+        <div class="mc-panel" role="listbox" aria-multiselectable="true">
+            <input class="mc-search" type="search" placeholder="חיפוש..." dir="auto" @bind="search" @bind:event="oninput" autofocus />
+            @if (ExtraItems.Count > 0 && !string.IsNullOrEmpty(ExtraLabel))
+            {
+                <label class="mc-extra">
+                    <input type="checkbox" @bind="showExtra" />
+                    <span>@ExtraLabel (@ExtraItems.Count)</span>
+                </label>
+            }
+            <div class="mc-actions">
+                <span>@Selected.Count נבחרו@(Existing.Count > 0 ? $" · {Existing.Count} כבר קיימים" : "")</span>
+                <button type="button" class="mc-link" @onclick="ClearAll" disabled="@(Selected.Count == 0)">נקה הכול</button>
+            </div>
+            <ul class="mc-list">
+                @foreach (var item in Visible)
+                {
+                    var have = Existing.Contains(item.Id);
+                    var isOn = have || Selected.Contains(item.Id);
+                    <li class="@(item.Dimmed ? "dim" : "") @(have ? "have" : "")">
+                        <label title="@(have ? "כבר קיים אצל העובד. אי אפשר להסיר כאן" : "")">
+                            <input type="checkbox" checked="@isOn" disabled="@have" @onchange="e => Set(item.Id, (bool)(e.Value ?? false))" />
+                            <span class="mc-label" dir="ltr">@item.Label</span>
+                            @if (have)
+                            {
+                                <span class="mc-have">קיים</span>
+                            }
+                            @if (!string.IsNullOrEmpty(item.Hint))
+                            {
+                                <span class="mc-hint" dir="auto">@item.Hint</span>
+                            }
+                        </label>
+                    </li>
+                }
+                @if (Visible.Count == 0)
+                {
+                    <li class="mc-empty">אין תוצאות</li>
+                }
+            </ul>
+            @if (matches > MaxShown)
+            {
+                <div class="mc-more">מוצגות @MaxShown מתוך @matches. הקלידו כדי לצמצם.</div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private const int MaxShown = 150;
+
+    [Parameter] public IReadOnlyList<ComboItem> Items { get; set; } = [];
+
+    // פריטים נוספים שמוצגים רק כשמסמנים את תיבת ה-ExtraLabel (למשל מרכזי עבודה ממחלקות אחרות)
+    [Parameter] public IReadOnlyList<ComboItem> ExtraItems { get; set; } = [];
+
+    [Parameter] public string ExtraLabel { get; set; } = string.Empty;
+
+    [Parameter] public IReadOnlyCollection<int> Selected { get; set; } = [];
+
+    [Parameter] public EventCallback<List<int>> SelectedChanged { get; set; }
+
+    // מה שכבר קיים אצל העובד: מסומן ונעול ברשימה ("קיים"), ואינו חלק מ-Selected (שהוא מה שיתווסף)
+    [Parameter] public IReadOnlyCollection<int> Existing { get; set; } = [];
+
+    [Parameter] public bool Disabled { get; set; }
+
+    [Parameter] public string Placeholder { get; set; } = "בחרו...";
+
+    private bool open;
+    private bool showExtra;
+    private string search = string.Empty;
+    private int matches;
+
+    // הנבחרים תמיד מוצגים, גם אם אינם ברשימה (למשל מרכז עבודה ממחלקה אחרת)
+    private List<ComboItem> SelectedItems
+        => Selected.Select(id => Items.FirstOrDefault(i => i.Id == id)
+                                 ?? ExtraItems.FirstOrDefault(i => i.Id == id)
+                                 ?? new ComboItem(id, id.ToString())).ToList();
+
+    // מה שניתן לבחור עכשיו: פריטי הרשימה, ועוד הנוספים אם סומנה התיבה (או אם כבר נבחר מהם משהו, כדי שלא יוסתר)
+    private IEnumerable<ComboItem> Pool
+        => showExtra || ExtraItems.Any(e => Selected.Contains(e.Id)) ? Items.Concat(ExtraItems) : Items;
+
+    private List<ComboItem> Visible
+    {
+        get
+        {
+            var term = search.Trim();
+            var found = Pool.Where(i => i.Matches(term)).ToList();
+            matches = found.Count;
+
+            // הנבחרים בראש הרשימה, ואחריהם השאר; מוצגים לכל היותר MaxShown כדי שהדף יישאר מהיר
+            return found.OrderByDescending(i => Existing.Contains(i.Id) || Selected.Contains(i.Id)).Take(MaxShown).ToList();
+        }
+    }
+
+    private void Toggle()
+    {
+        open = !open;
+        search = string.Empty;
+    }
+
+    private void Close() => open = false;
+
+    private async Task Set(int id, bool on)
+    {
+        var next = Selected.Where(x => x != id).ToList();
+        if (on)
+            next.Add(id);
+        await SelectedChanged.InvokeAsync(next);
+    }
+
+    private Task ClearAll() => SelectedChanged.InvokeAsync([]);
+}

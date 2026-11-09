@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Manti3.Backend\Manti3.Backend.Domain\Manti3.Backend.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Manti3.Backend\Manti3.Backend.Application\Manti3.Backend.Application.csproj" />
+    <ProjectReference Include="..\..\src\Manti3.Backend\Manti3.Backend.Infrastructure\Manti3.Backend.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Manti3.Backend\Manti3.Backend.Api\Manti3.Backend.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NetArchTest.Rules" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+</Project>
