@@ -120,10 +120,10 @@ need to read in web mode).
 ```json
 {
   "requestId": "<input file name without extension>",
-  "example": { "userCode": "76984", "userId": 2412,
+  "example": { "userCode": "10005", "userId": 2412,
                "screens": [ { "objId": 742, "name": "<AppTbToolTip>" } ] },
   "workers": [
-    { "userCode": "94129",
+    { "userCode": "10001",
       "userId": 5001,
       "newUser": { "firstName": "<HR, trimmed>", "lastName": "<HR, trimmed>",
                    "engFirstName": "<HR FirstNameE, or your translation>", "engLastName": "<HR LastNameE, or your translation>",

@@ -1,2 +1,17 @@
 # Output of the access-requests agent: contains employee data.
 .agent-output/
+
+# A mistyped agent-output path (missing slash) must not slip through either
+.agent-output*
+
+# .NET build output and local files
+bin/
+obj/
+TestResults/
+.vs/
+*.user
+*.suo
+*.log
+.env
+appsettings.*.local.json
+secrets.json
